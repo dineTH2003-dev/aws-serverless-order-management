@@ -32,29 +32,37 @@ provider "aws" {
   }
 }
 
-# ─── Modules (wired in subsequent phases) ─────────────────────────────────────
+# ── Phase 1: DynamoDB ─────────────────────────────────────────────────────────
+module "dynamodb" {
+  source = "./modules/dynamodb"
 
-# module "dynamodb" {
-#   source = "./modules/dynamodb"
-#   ...  # Phase 1
-# }
+  project_name = var.project_name
+  environment  = var.environment
+  billing_mode = "PAY_PER_REQUEST"
+  enable_pitr  = true
+  ttl_attribute = "ttl"
+}
 
+# ── Phase 2: Cognito ──────────────────────────────────────────────────────────
 # module "cognito" {
 #   source = "./modules/cognito"
-#   ...  # Phase 2
+#   ...  implemented in feat/phase-2-cognito
 # }
 
+# ── Phase 3: Lambda ───────────────────────────────────────────────────────────
 # module "lambda" {
 #   source = "./modules/lambda"
-#   ...  # Phase 3
+#   ...  implemented in feat/phase-3-lambda
 # }
 
+# ── Phase 4: API Gateway ──────────────────────────────────────────────────────
 # module "api_gateway" {
 #   source = "./modules/api_gateway"
-#   ...  # Phase 4
+#   ...  implemented in feat/phase-4-api-gateway
 # }
 
+# ── Phase 5: WAF ──────────────────────────────────────────────────────────────
 # module "waf" {
 #   source = "./modules/waf"
-#   ...  # Phase 5
+#   ...  implemented in feat/phase-5-waf
 # }
