@@ -49,6 +49,12 @@ jobs:
           aws-region: ${{ env.AWS_REGION }}
           role-session-name: GitHubActions-${{ github.run_id }}
 
+      - name: Build Lambda Layer Dependencies
+        run: |
+          mkdir -p layer/python infra/modules/lambda/dist
+          pip install pydantic pydantic-core annotated-types typing-extensions -t layer/python
+          cd layer && zip -r ../infra/modules/lambda/dist/layer.zip python && cd ..
+
       - name: Initialize Terraform with Remote Backend
         run: |
           cd infra
