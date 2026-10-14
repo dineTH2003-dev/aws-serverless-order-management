@@ -36,18 +36,23 @@ provider "aws" {
 module "dynamodb" {
   source = "./modules/dynamodb"
 
-  project_name = var.project_name
-  environment  = var.environment
-  billing_mode = "PAY_PER_REQUEST"
-  enable_pitr  = true
+  project_name  = var.project_name
+  environment   = var.environment
+  billing_mode  = "PAY_PER_REQUEST"
+  enable_pitr   = true
   ttl_attribute = "ttl"
 }
 
 # ── Phase 2: Cognito ──────────────────────────────────────────────────────────
-# module "cognito" {
-#   source = "./modules/cognito"
-#   ...  implemented in feat/phase-2-cognito
-# }
+module "cognito" {
+  source = "./modules/cognito"
+
+  project_name                = var.project_name
+  environment                 = var.environment
+  mfa_configuration           = "OPTIONAL"
+  access_token_validity_hours = 1
+  refresh_token_validity_days = 30
+}
 
 # ── Phase 3: Lambda ───────────────────────────────────────────────────────────
 # module "lambda" {
