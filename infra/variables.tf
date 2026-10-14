@@ -22,7 +22,7 @@ variable "aws_region" {
 variable "aws_profile" {
   description = "AWS CLI profile to use for deployment"
   type        = string
-  default     = "account2"
+  default     = ""
 }
 
 variable "owner" {
