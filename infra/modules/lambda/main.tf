@@ -136,7 +136,6 @@ resource "aws_lambda_function" "functions" {
     variables = {
       TABLE_NAME = var.dynamodb_table_name
       LOG_LEVEL  = var.log_level
-      AWS_REGION = data.aws_region.current.name
     }
   }
 
