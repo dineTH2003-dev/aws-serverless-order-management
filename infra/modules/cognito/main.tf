@@ -94,8 +94,8 @@ resource "aws_cognito_user_pool_client" "app" {
   }
 
   # ── Prevent token reuse attacks ──────────────────────────────────────────────
-  enable_token_revocation               = true
-  prevent_user_existence_errors         = "ENABLED"
+  enable_token_revocation       = true
+  prevent_user_existence_errors = "ENABLED"
 
   # ── Read/write attributes ────────────────────────────────────────────────────
   read_attributes  = ["email", "email_verified"]

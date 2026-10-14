@@ -132,7 +132,7 @@ resource "aws_lambda_function" "functions" {
   }
 
   tracing_config {
-    mode = "Active"  # X-Ray active tracing
+    mode = "Active" # X-Ray active tracing
   }
 
   depends_on = [aws_cloudwatch_log_group.lambda_logs]
