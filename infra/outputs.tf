@@ -41,11 +41,22 @@ output "cognito_app_client_id" {
 }
 
 output "cognito_jwks_uri" {
-  description = "JWKS URI for JWT token validation"
+  description = "JWKS URI for JWT validation"
   value       = module.cognito.jwks_uri
 }
 
-# ── Placeholders (Phase 3-5) ──────────────────────────────────────────────────
+# ── Phase 3: Lambda ───────────────────────────────────────────────────────────
+output "lambda_function_arns" {
+  description = "Map of Lambda function ARNs"
+  value       = module.lambda.function_arns
+}
+
+output "lambda_function_names" {
+  description = "Map of Lambda function names"
+  value       = module.lambda.function_names
+}
+
+# ── Placeholder: Phase 4 ──────────────────────────────────────────────────────
 # output "api_gateway_url" {
-#   value = module.api_gateway.api_url    # Phase 4
+#   value = module.api_gateway.api_url
 # }
