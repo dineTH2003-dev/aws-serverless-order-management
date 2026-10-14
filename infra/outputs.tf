@@ -82,3 +82,14 @@ output "waf_web_acl_arn" {
   description = "WAF WebACL ARN"
   value       = module.waf.web_acl_arn
 }
+
+# ── Phase 6: Observability ────────────────────────────────────────────────────
+output "cloudwatch_dashboard_name" {
+  description = "CloudWatch Dashboard Name"
+  value       = module.monitoring.dashboard_name
+}
+
+output "sns_alerts_topic_arn" {
+  description = "SNS topic ARN for operational alerts"
+  value       = module.monitoring.sns_topic_arn
+}
