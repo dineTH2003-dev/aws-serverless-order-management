@@ -55,10 +55,18 @@ module "cognito" {
 }
 
 # ── Phase 3: Lambda ───────────────────────────────────────────────────────────
-# module "lambda" {
-#   source = "./modules/lambda"
-#   ...  implemented in feat/phase-3-lambda
-# }
+module "lambda" {
+  source = "./modules/lambda"
+
+  project_name         = var.project_name
+  environment          = var.environment
+  dynamodb_table_name  = module.dynamodb.table_name
+  dynamodb_table_arn   = module.dynamodb.table_arn
+  dynamodb_kms_key_arn = module.dynamodb.kms_key_arn
+  log_level            = var.log_level
+  lambda_memory_mb     = 256
+  lambda_timeout_seconds = 10
+}
 
 # ── Phase 4: API Gateway ──────────────────────────────────────────────────────
 # module "api_gateway" {
