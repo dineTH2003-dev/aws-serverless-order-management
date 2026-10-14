@@ -14,22 +14,14 @@ on:
           - dev
           - prod
 
-permissions:
-  id-token: write   # Required for AWS OIDC authentication
-  contents: read
-
 env:
   AWS_REGION: us-east-1
-  ROLE_TO_ASSUME: arn:aws:iam::265283365424:role/github-actions-serverless-deployer
   DEPLOY_ENV: ${{ inputs.environment || 'dev' }}
 
 jobs:
   deploy:
     name: Deploy Serverless Infrastructure
     runs-on: ubuntu-latest
-    permissions:
-      id-token: write
-      contents: read
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
@@ -45,13 +37,12 @@ jobs:
         with:
           terraform_version: "1.9.5"
 
-      - name: Configure AWS Credentials via OIDC
+      - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: ${{ env.ROLE_TO_ASSUME }}
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ env.AWS_REGION }}
-          audience: sts.amazonaws.com
-          role-session-name: GitHubActions-${{ github.run_id }}
 
       - name: Build Lambda Layer Dependencies
         run: |
