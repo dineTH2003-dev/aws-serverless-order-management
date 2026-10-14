@@ -58,21 +58,28 @@ module "cognito" {
 module "lambda" {
   source = "./modules/lambda"
 
-  project_name         = var.project_name
-  environment          = var.environment
-  dynamodb_table_name  = module.dynamodb.table_name
-  dynamodb_table_arn   = module.dynamodb.table_arn
-  dynamodb_kms_key_arn = module.dynamodb.kms_key_arn
-  log_level            = var.log_level
-  lambda_memory_mb     = 256
+  project_name           = var.project_name
+  environment            = var.environment
+  dynamodb_table_name    = module.dynamodb.table_name
+  dynamodb_table_arn     = module.dynamodb.table_arn
+  dynamodb_kms_key_arn   = module.dynamodb.kms_key_arn
+  log_level              = var.log_level
+  lambda_memory_mb       = 256
   lambda_timeout_seconds = 10
 }
 
 # ── Phase 4: API Gateway ──────────────────────────────────────────────────────
-# module "api_gateway" {
-#   source = "./modules/api_gateway"
-#   ...  implemented in feat/phase-4-api-gateway
-# }
+module "api_gateway" {
+  source = "./modules/api_gateway"
+
+  project_name          = var.project_name
+  environment           = var.environment
+  cognito_user_pool_arn = module.cognito.user_pool_arn
+  lambda_invoke_arns    = module.lambda.function_invoke_arns
+  lambda_function_names = module.lambda.function_names
+  throttling_burst_limit = 1000
+  throttling_rate_limit  = 500
+}
 
 # ── Phase 5: WAF ──────────────────────────────────────────────────────────────
 # module "waf" {
