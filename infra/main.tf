@@ -90,3 +90,15 @@ module "waf" {
   api_gateway_stage_arn = module.api_gateway.stage_arn
   rate_limit_per_5min   = 2000
 }
+
+# ── Phase 6: Monitoring & Observability ───────────────────────────────────────
+module "monitoring" {
+  source = "./modules/monitoring"
+
+  project_name          = var.project_name
+  environment           = var.environment
+  api_gateway_name      = "${var.project_name}-api-${var.environment}"
+  lambda_function_names = module.lambda.function_names
+  dynamodb_table_name   = module.dynamodb.table_name
+  waf_web_acl_name      = "${var.project_name}-web-acl-${var.environment}"
+}
