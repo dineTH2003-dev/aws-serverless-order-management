@@ -56,7 +56,18 @@ output "lambda_function_names" {
   value       = module.lambda.function_names
 }
 
-# ── Placeholder: Phase 4 ──────────────────────────────────────────────────────
-# output "api_gateway_url" {
-#   value = module.api_gateway.api_url
-# }
+# ── Phase 4: API Gateway ──────────────────────────────────────────────────────
+output "api_gateway_id" {
+  description = "REST API ID"
+  value       = module.api_gateway.api_id
+}
+
+output "api_gateway_url" {
+  description = "Base URL of the deployed API Gateway stage"
+  value       = module.api_gateway.api_url
+}
+
+output "api_gateway_stage_arn" {
+  description = "API Gateway stage ARN (for WAF association)"
+  value       = module.api_gateway.stage_arn
+}
