@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AWS Serverless Order Management — Live Demo</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body class="bg-slate-900 text-slate-100 min-h-screen font-sans">
+  
+  <!-- Header -->
+  <header class="border-b border-slate-800 bg-slate-950/80 backdrop-blur sticky top-0 z-50">
+    <div class="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-amber-500 to-orange-500 flex items-center justify-center text-white shadow-lg shadow-orange-500/20">
+          <i class="fa-solid fa-bolt text-xl"></i>
+        </div>
+        <div>
+          <h1 class="text-lg font-bold tracking-tight">Serverless Order API</h1>
+          <p class="text-xs text-slate-400">AWS Lambda • API Gateway • DynamoDB • Cognito • WAF</p>
+        </div>
+      </div>
+      <div class="flex items-center gap-3 text-xs">
+        <span class="px-2.5 py-1 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-medium flex items-center gap-1.5">
+          <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+          Live in us-east-1
+        </span>
+      </div>
+    </div>
+  </header>
+
+  <main class="max-w-6xl mx-auto px-6 py-8 grid grid-cols-1 lg:grid-cols-3 gap-8">
+    
+    <!-- Left Column: Auth & Create Order -->
+    <div class="space-y-6 lg:col-span-1">
+      
+      <!-- Authentication Card -->
+      <div class="bg-slate-800/60 border border-slate-700/60 rounded-2xl p-6 backdrop-blur shadow-xl">
+        <div class="flex items-center justify-between mb-4">
+          <h2 class="text-sm font-semibold uppercase tracking-wider text-slate-400 flex items-center gap-2">
+            <i class="fa-solid fa-id-badge text-amber-400"></i> Cognito Authentication
+          </h2>
+          <span id="authBadge" class="text-xs px-2 py-0.5 rounded bg-amber-500/10 text-amber-400 border border-amber-500/20">Not Logged In</span>
+        </div>
+        <div class="space-y-3">
+          <div>
+            <label class="block text-xs text-slate-400 mb-1">Email (Username)</label>
+            <input id="emailInput" type="text" value="testuser@example.com" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-orange-500 transition">
+          </div>
+          <div>
+            <label class="block text-xs text-slate-400 mb-1">Password</label>
+            <input id="passwordInput" type="password" value="Password123!" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-orange-500 transition">
+          </div>
+          <button id="loginBtn" onclick="handleLogin()" class="w-full bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 font-medium rounded-lg py-2.5 text-sm transition shadow-lg shadow-orange-500/20 flex items-center justify-center gap-2">
+            <i class="fa-solid fa-key"></i> Get Cognito JWT Token
+          </button>
+        </div>
+      </div>
+
+      <!-- Create Order Form -->
+      <div class="bg-slate-800/60 border border-slate-700/60 rounded-2xl p-6 backdrop-blur shadow-xl">
+        <h2 class="text-sm font-semibold uppercase tracking-wider text-slate-400 mb-4 flex items-center gap-2">
+          <i class="fa-solid fa-cart-plus text-emerald-400"></i> Create Order (POST /orders)
+        </h2>
+        <div class="space-y-3">
+          <div>
+            <label class="block text-xs text-slate-400 mb-1">Product Name</label>
+            <input id="prodName" type="text" value="Cloud Architecture Handbook" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-emerald-500 transition">
+          </div>
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="block text-xs text-slate-400 mb-1">Quantity</label>
+              <input id="prodQty" type="number" value="1" min="1" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-emerald-500 transition">
+            </div>
+            <div>
+              <label class="block text-xs text-slate-400 mb-1">Unit Price ($)</label>
+              <input id="prodPrice" type="number" value="49.99" step="0.01" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-emerald-500 transition">
+            </div>
+          </div>
+          <div>
+            <label class="block text-xs text-slate-400 mb-1">Shipping Address</label>
+            <input id="prodAddress" type="text" value="100 Cloud Engineering Way, Seattle, WA" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-emerald-500 transition">
+          </div>
+          <div>
+            <label class="block text-xs text-slate-400 mb-1">Notes (Optional)</label>
+            <input id="prodNotes" type="text" value="Please deliver before 5 PM" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-emerald-500 transition">
+          </div>
+          <button id="createOrderBtn" onclick="handleCreateOrder()" class="w-full bg-emerald-600 hover:bg-emerald-700 font-medium rounded-lg py-2.5 text-sm transition shadow-lg shadow-emerald-600/20 flex items-center justify-center gap-2">
+            <i class="fa-solid fa-paper-plane"></i> Submit Order to API
+          </button>
+        </div>
+      </div>
+      
+    </div>
+
+    <!-- Right Column: Live Data Feed -->
+    <div class="lg:col-span-2 space-y-6">
+      
+      <!-- Live Orders Table -->
+      <div class="bg-slate-800/60 border border-slate-700/60 rounded-2xl p-6 backdrop-blur shadow-xl">
+        <div class="flex items-center justify-between mb-4">
+          <div>
+            <h2 class="text-sm font-semibold uppercase tracking-wider text-slate-400 flex items-center gap-2">
+              <i class="fa-solid fa-list-check text-blue-400"></i> Live Orders in DynamoDB
+            </h2>
+            <p class="text-xs text-slate-500">Filtered by your authenticated Cognito User ID</p>
+          </div>
+          <button onclick="handleFetchOrders()" class="text-xs bg-slate-700 hover:bg-slate-600 px-3 py-1.5 rounded-lg transition flex items-center gap-1.5 text-slate-200">
+            <i class="fa-solid fa-rotate-right"></i> Refresh
+          </button>
+        </div>
+        
+        <div id="ordersContainer" class="space-y-3 min-h-[160px] flex flex-col justify-center">
+          <p class="text-center text-slate-500 text-sm">Please log in to retrieve your live orders from DynamoDB.</p>
+        </div>
+      </div>
+
+      <!-- Live Terminal / Response Inspector -->
+      <div class="bg-slate-950 border border-slate-800 rounded-2xl p-5 shadow-2xl font-mono text-xs">
+        <div class="flex items-center justify-between border-b border-slate-800 pb-3 mb-3">
+          <div class="flex items-center gap-2 text-slate-400">
+            <span class="w-3 h-3 rounded-full bg-red-500/80 inline-block"></span>
+            <span class="w-3 h-3 rounded-full bg-amber-500/80 inline-block"></span>
+            <span class="w-3 h-3 rounded-full bg-emerald-500/80 inline-block"></span>
+            <span class="ml-2 font-semibold">HTTP Inspector & Cloud Audit Logs</span>
+          </div>
+          <span id="httpStatus" class="text-slate-500">READY</span>
+        </div>
+        <pre id="logTerminal" class="text-slate-300 overflow-x-auto max-h-60 whitespace-pre-wrap">Ready. Click "Get Cognito JWT Token" to begin live interaction.</pre>
+      </div>
+
+    </div>
+
+  </main>
+
+  <script>
+    const API_URL = "https://7hymqfj0bk.execute-api.us-east-1.amazonaws.com/dev";
+    const CLIENT_ID = "3fpe37duct53ssg8t55rdv01nh";
+    let jwtToken = null;
+
+    function log(message, status="INFO") {
+      const term = document.getElementById("logTerminal");
+      const timestamp = new Date().toLocaleTimeString();
+      term.textContent = `[${timestamp}] [${status}] ${message}
+` + term.textContent;
+    }
+
+    async function handleLogin() {
+      const email = document.getElementById("emailInput").value;
+      const password = document.getElementById("passwordInput").value;
+      const btn = document.getElementById("loginBtn");
+      btn.disabled = true;
+      btn.innerHTML = `<i class="fa-solid fa-spinner animate-spin"></i> Authenticating...`;
+
+      try {
+        log(`Initiating auth for ${email} with Cognito...`);
+        const res = await fetch("https://cognito-idp.us-east-1.amazonaws.com/", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/x-amz-json-1.1",
+            "X-Amz-Target": "AWSCognitoIdentityProviderService.InitiateAuth"
+          },
+          body: JSON.stringify({
+            AuthFlow: "USER_PASSWORD_AUTH",
+            ClientId: CLIENT_ID,
+            AuthParameters: {
+              USERNAME: email,
+              PASSWORD: password
+            }
+          })
+        });
+
+        const data = await res.json();
+        if (data.AuthenticationResult) {
+          jwtToken = data.AuthenticationResult.IdToken;
+          document.getElementById("authBadge").textContent = "Authenticated ✅";
+          document.getElementById("authBadge").className = "text-xs px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20";
+          log("Cognito authentication succeeded! Received JWT ID Token.");
+          document.getElementById("httpStatus").textContent = "AUTH 200 OK";
+          document.getElementById("httpStatus").className = "text-emerald-400 font-bold";
+          await handleFetchOrders();
+        } else {
+          log(`Auth failed: ${JSON.stringify(data)}`, "ERROR");
+          alert("Authentication failed: " + (data.message || JSON.stringify(data)));
+        }
+      } catch (err) {
+        log(`Network or CORS error: ${err.message}`, "ERROR");
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = `<i class="fa-solid fa-key"></i> Get Cognito JWT Token`;
+      }
+    }
+
+    async function handleFetchOrders() {
+      if (!jwtToken) {
+        alert("Please authenticate first!");
+        return;
+      }
+      log("Calling GET /orders via Amazon API Gateway...");
+      const container = document.getElementById("ordersContainer");
+      container.innerHTML = `<p class="text-center text-slate-500"><i class="fa-solid fa-spinner animate-spin"></i> Fetching from DynamoDB...</p>`;
+
+      try {
+        const res = await fetch(`${API_URL}/orders`, {
+          headers: { "Authorization": jwtToken }
+        });
+        const data = await res.json();
+        document.getElementById("httpStatus").textContent = `HTTP ${res.status}`;
+        log(`GET /orders returned HTTP ${res.status}: ${JSON.stringify(data)}`);
+
+        if (data.orders && data.orders.length > 0) {
+          container.innerHTML = data.orders.map(order => `
+            <div class="bg-slate-900/90 border border-slate-700/80 rounded-xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:border-slate-600 transition">
+              <div class="space-y-1">
+                <div class="flex items-center gap-2">
+                  <span class="text-xs font-mono text-amber-400 font-bold">#${order.orderId.substring(0, 8)}...</span>
+                  <span class="text-xs px-2 py-0.5 rounded bg-blue-500/10 text-blue-400 border border-blue-500/20">${order.status}</span>
+                </div>
+                <p class="text-sm font-medium text-slate-200">${order.items.map(i => `${i.name} (x${i.quantity})`).join(", ")}</p>
+                <p class="text-xs text-slate-400"><i class="fa-solid fa-location-dot"></i> ${order.shippingAddress}</p>
+              </div>
+              <div class="flex items-center gap-4">
+                <span class="text-base font-bold text-emerald-400 font-mono">$${parseFloat(order.totalAmount).toFixed(2)}</span>
+                <button onclick="handleDeleteOrder('${order.orderId}')" class="text-xs bg-red-500/10 hover:bg-red-500 text-red-400 hover:text-white px-2.5 py-1.5 rounded-lg border border-red-500/20 transition">
+                  <i class="fa-solid fa-trash"></i>
+                </button>
+              </div>
+            </div>
+          `).join("");
+        } else {
+          container.innerHTML = `<p class="text-center text-slate-500 text-sm">No orders found in DynamoDB. Create one above!</p>`;
+        }
+      } catch (err) {
+        log(`Failed to fetch orders: ${err.message}`, "ERROR");
+      }
+    }
+
+    async function handleCreateOrder() {
+      if (!jwtToken) {
+        alert("Please authenticate first!");
+        return;
+      }
+      const btn = document.getElementById("createOrderBtn");
+      btn.disabled = true;
+      btn.innerHTML = `<i class="fa-solid fa-spinner animate-spin"></i> Submitting...`;
+
+      const payload = {
+        items: [{
+          productId: "prod-" + Math.floor(Math.random() * 900 + 100),
+          name: document.getElementById("prodName").value,
+          quantity: parseInt(document.getElementById("prodQty").value),
+          unitPrice: parseFloat(document.getElementById("prodPrice").value)
+        }],
+        shippingAddress: document.getElementById("prodAddress").value,
+        notes: document.getElementById("prodNotes").value
+      };
+
+      try {
+        log(`Sending POST /orders payload: ${JSON.stringify(payload)}`);
+        const res = await fetch(`${API_URL}/orders`, {
+          method: "POST",
+          headers: {
+            "Authorization": jwtToken,
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+        document.getElementById("httpStatus").textContent = `HTTP ${res.status}`;
+        log(`POST /orders returned HTTP ${res.status}: Created ID ${data.orderId}`);
+        await handleFetchOrders();
+      } catch (err) {
+        log(`Failed to create order: ${err.message}`, "ERROR");
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = `<i class="fa-solid fa-paper-plane"></i> Submit Order to API`;
+      }
+    }
+
+    async function handleDeleteOrder(orderId) {
+      if (!confirm("Are you sure you want to delete order " + orderId + "?")) return;
+      log(`Calling DELETE /orders/${orderId}...`);
+      try {
+        const res = await fetch(`${API_URL}/orders/${orderId}`, {
+          method: "DELETE",
+          headers: { "Authorization": jwtToken }
+        });
+        log(`DELETE returned HTTP ${res.status}`);
+        document.getElementById("httpStatus").textContent = `DELETE ${res.status}`;
+        await handleFetchOrders();
+      } catch (err) {
+        log(`Failed to delete order: ${err.message}`, "ERROR");
+      }
+    }
+  </script>
+</body>
+</html>

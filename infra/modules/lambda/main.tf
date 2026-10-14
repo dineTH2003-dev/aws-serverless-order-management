@@ -128,7 +128,7 @@ resource "aws_lambda_function" "functions" {
   source_code_hash = data.archive_file.lambda_zips[each.key].output_base64sha256
 
   handler     = each.value.handler
-  runtime     = "python3.11"
+  runtime     = "python3.12"
   memory_size = var.lambda_memory_mb
   timeout     = var.lambda_timeout_seconds
 
