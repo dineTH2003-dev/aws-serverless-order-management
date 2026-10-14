@@ -21,10 +21,10 @@ resource "aws_api_gateway_rest_api" "main" {
 
 # ── Cognito Authorizer ────────────────────────────────────────────────────────
 resource "aws_api_gateway_authorizer" "cognito" {
-  name          = "${var.project_name}-cognito-authorizer-${var.environment}"
-  rest_api_id   = aws_api_gateway_rest_api.main.id
-  type          = "COGNITO_USER_POOLS"
-  provider_arns = [var.cognito_user_pool_arn]
+  name            = "${var.project_name}-cognito-authorizer-${var.environment}"
+  rest_api_id     = aws_api_gateway_rest_api.main.id
+  type            = "COGNITO_USER_POOLS"
+  provider_arns   = [var.cognito_user_pool_arn]
   identity_source = "method.request.header.Authorization"
 }
 
@@ -80,9 +80,9 @@ resource "aws_api_gateway_method" "get_orders" {
   authorizer_id = aws_api_gateway_authorizer.cognito.id
 
   request_parameters = {
-    "method.request.querystring.status"   = false
-    "method.request.querystring.limit"    = false
-    "method.request.querystring.lastKey"  = false
+    "method.request.querystring.status"  = false
+    "method.request.querystring.limit"   = false
+    "method.request.querystring.lastKey" = false
   }
 }
 
@@ -154,7 +154,7 @@ resource "aws_api_gateway_integration" "options_orders" {
   type        = "MOCK"
 
   request_templates = {
-    "application/json" = "{"statusCode": 200}"
+    "application/json" = jsonencode({ statusCode = 200 })
   }
 }
 
@@ -201,7 +201,7 @@ resource "aws_api_gateway_integration" "options_order_id" {
   type        = "MOCK"
 
   request_templates = {
-    "application/json" = "{"statusCode": 200}"
+    "application/json" = jsonencode({ statusCode = 200 })
   }
 }
 
