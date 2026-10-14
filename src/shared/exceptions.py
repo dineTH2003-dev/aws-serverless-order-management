@@ -1,8 +1,5 @@
 """
 Custom exception types and HTTP response helpers.
-
-All Lambda handlers return a standard API Gateway proxy response dict.
-These helpers ensure consistent error shape across every function.
 """
 from __future__ import annotations
 
@@ -62,7 +59,7 @@ def success_response(body: dict | list, status_code: int = 200) -> dict:
 
 def error_response(error_code: str, message: str, status_code: int = 500) -> dict:
     """Return an error API Gateway proxy response."""
-    logger.error("error_response", extra={"error_code": error_code, "message": message})
+    logger.error("error_response", extra={"error_code": error_code, "err_detail": message})
     return {
         "statusCode": status_code,
         "headers": _cors_headers(),

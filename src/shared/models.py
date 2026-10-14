@@ -1,12 +1,10 @@
 """
 Pydantic data models for the Order Management API.
-
-These models handle input validation for all Lambda functions.
-Pydantic v2 is used for performance and strict type safety.
 """
 from __future__ import annotations
 
 from datetime import datetime, timezone
+from decimal import Decimal
 from enum import Enum
 from typing import Optional
 from uuid import uuid4
@@ -51,7 +49,7 @@ class CreateOrderRequest(BaseModel):
 
 
 class Order(BaseModel):
-    """Full order domain model — used for serialisation into DynamoDB."""
+    """Full order domain model."""
     orderId:         str         = Field(default_factory=lambda: str(uuid4()))
     userId:          str
     status:          OrderStatus = OrderStatus.PENDING
@@ -67,15 +65,23 @@ class Order(BaseModel):
     )
 
     def to_dynamodb_item(self) -> dict:
-        """Convert the order to a DynamoDB-ready dict."""
+        """Convert the order to a DynamoDB-ready dict with Decimal numbers."""
         return {
             "PK":              f"ORDER#{self.orderId}",
             "SK":              "METADATA",
             "orderId":         self.orderId,
             "userId":          self.userId,
             "status":          self.status.value,
-            "items":           [item.model_dump() for item in self.items],
-            "totalAmount":     str(self.totalAmount),   # Decimal-safe string
+            "items": [
+                {
+                    "productId": item.productId,
+                    "name": item.name,
+                    "quantity": item.quantity,
+                    "unitPrice": Decimal(str(item.unitPrice)),
+                }
+                for item in self.items
+            ],
+            "totalAmount":     Decimal(str(self.totalAmount)),
             "shippingAddress": self.shippingAddress,
             "notes":           self.notes or "",
             "createdAt":       self.createdAt,
@@ -89,7 +95,15 @@ class Order(BaseModel):
             orderId=item["orderId"],
             userId=item["userId"],
             status=OrderStatus(item["status"]),
-            items=[OrderItem(**i) for i in item["items"]],
+            items=[
+                OrderItem(
+                    productId=i["productId"],
+                    name=i["name"],
+                    quantity=int(i["quantity"]),
+                    unitPrice=float(i["unitPrice"]),
+                )
+                for i in item["items"]
+            ],
             totalAmount=float(item["totalAmount"]),
             shippingAddress=item["shippingAddress"],
             notes=item.get("notes") or None,
