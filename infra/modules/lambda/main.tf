@@ -107,6 +107,15 @@ resource "aws_cloudwatch_log_group" "lambda_logs" {
   retention_in_days = 14
 }
 
+# ── Lambda Layer for Dependencies (pydantic) ─────────────────────────────────
+resource "aws_lambda_layer_version" "dependencies" {
+  layer_name          = "${local.prefix}-python-dependencies"
+  description         = "Python dependencies (pydantic) for ${var.project_name}"
+  filename            = "${path.module}/dist/layer.zip"
+  source_code_hash    = fileexists("${path.module}/dist/layer.zip") ? filebase64sha256("${path.module}/dist/layer.zip") : null
+  compatible_runtimes = ["python3.11", "python3.12"]
+}
+
 # ── Lambda Functions ──────────────────────────────────────────────────────────
 resource "aws_lambda_function" "functions" {
   for_each = local.functions
@@ -130,6 +139,8 @@ resource "aws_lambda_function" "functions" {
       AWS_REGION = data.aws_region.current.name
     }
   }
+
+  layers = [aws_lambda_layer_version.dependencies.arn]
 
   tracing_config {
     mode = "Active" # X-Ray active tracing
