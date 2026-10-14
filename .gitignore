@@ -27,6 +27,7 @@ coverage.xml
 *.tfplan
 terraform.tfvars
 *.auto.tfvars
+!infra/environments/**/*.tfvars
 
 # Lambda build artefacts
 *.zip

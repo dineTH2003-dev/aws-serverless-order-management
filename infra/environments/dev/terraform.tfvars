@@ -1,0 +1,5 @@
+project_name = "order-management"
+environment  = "dev"
+aws_region   = "us-east-1"
+owner        = "dineth"
+log_level    = "DEBUG"
