@@ -5,7 +5,7 @@ locals {
 # ── WAFv2 WebACL (Regional for API Gateway) ───────────────────────────────────
 resource "aws_wafv2_web_acl" "main" {
   name        = local.waf_name
-  description = "WAF protection for ${var.project_name} API Gateway (${var.environment})"
+  description = "WAF protection for ${var.project_name} API Gateway ${var.environment}"
   scope       = "REGIONAL"
 
   default_action {
