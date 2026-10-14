@@ -3,4 +3,3 @@ key            = "dev/terraform.tfstate"
 region         = "us-east-1"
 dynamodb_table = "order-management-tfstate-lock"
 encrypt        = true
-profile        = "account2"
