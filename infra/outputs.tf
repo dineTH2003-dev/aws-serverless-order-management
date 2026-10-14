@@ -71,3 +71,14 @@ output "api_gateway_stage_arn" {
   description = "API Gateway stage ARN (for WAF association)"
   value       = module.api_gateway.stage_arn
 }
+
+# ── Phase 5: WAF ──────────────────────────────────────────────────────────────
+output "waf_web_acl_id" {
+  description = "WAF WebACL ID"
+  value       = module.waf.web_acl_id
+}
+
+output "waf_web_acl_arn" {
+  description = "WAF WebACL ARN"
+  value       = module.waf.web_acl_arn
+}

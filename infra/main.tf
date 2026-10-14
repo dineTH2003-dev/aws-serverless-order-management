@@ -72,17 +72,21 @@ module "lambda" {
 module "api_gateway" {
   source = "./modules/api_gateway"
 
-  project_name          = var.project_name
-  environment           = var.environment
-  cognito_user_pool_arn = module.cognito.user_pool_arn
-  lambda_invoke_arns    = module.lambda.function_invoke_arns
-  lambda_function_names = module.lambda.function_names
+  project_name           = var.project_name
+  environment            = var.environment
+  cognito_user_pool_arn  = module.cognito.user_pool_arn
+  lambda_invoke_arns     = module.lambda.function_invoke_arns
+  lambda_function_names  = module.lambda.function_names
   throttling_burst_limit = 1000
   throttling_rate_limit  = 500
 }
 
 # ── Phase 5: WAF ──────────────────────────────────────────────────────────────
-# module "waf" {
-#   source = "./modules/waf"
-#   ...  implemented in feat/phase-5-waf
-# }
+module "waf" {
+  source = "./modules/waf"
+
+  project_name          = var.project_name
+  environment           = var.environment
+  api_gateway_stage_arn = module.api_gateway.stage_arn
+  rate_limit_per_5min   = 2000
+}
