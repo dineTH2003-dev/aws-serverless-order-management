@@ -11,12 +11,30 @@ import os
 import boto3
 import pytest
 import requests
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
 
 API_URL = os.environ.get("API_URL", "https://7hymqfj0bk.execute-api.us-east-1.amazonaws.com/dev")
 CLIENT_ID = os.environ.get("COGNITO_CLIENT_ID", "3fpe37duct53ssg8t55rdv01nh")
 TEST_USER = os.environ.get("TEST_USER", "testuser@example.com")
 TEST_PASSWORD = os.environ.get("TEST_PASSWORD", "Password123!")
 AWS_REGION = os.environ.get("AWS_REGION", "us-east-1")
+
+
+@pytest.fixture(scope="module")
+def http_session() -> requests.Session:
+    """Enterprise HTTP session configured with exponential backoff and connection pooling."""
+    session = requests.Session()
+    retries = Retry(
+        total=3,
+        backoff_factor=1,
+        status_forcelist=[502, 503, 504],
+        raise_on_status=False,
+    )
+    adapter = HTTPAdapter(max_retries=retries)
+    session.mount("https://", adapter)
+    session.mount("http://", adapter)
+    return session
 
 
 @pytest.fixture(scope="module")
@@ -38,13 +56,13 @@ def auth_token() -> str:
         pytest.skip(f"Cognito live authentication unavailable: {exc}")
 
 
-def test_unauthenticated_request_rejected():
+def test_unauthenticated_request_rejected(http_session: requests.Session):
     """Verify API Gateway Cognito Authorizer rejects requests without token."""
-    res = requests.get(f"{API_URL}/orders")
+    res = http_session.get(f"{API_URL}/orders", timeout=15)
     assert res.status_code == 401
 
 
-def test_order_lifecycle_smoke(auth_token: str):
+def test_order_lifecycle_smoke(auth_token: str, http_session: requests.Session):
     """
     Test complete live order lifecycle:
     Create -> Retrieve -> List -> Soft Delete -> Verify Soft Deleted -> Idempotent Delete
@@ -69,7 +87,9 @@ def test_order_lifecycle_smoke(auth_token: str):
         "notes": "Automated smoke test order",
         "idempotencyKey": "smoke-idem-" + os.urandom(4).hex(),
     }
-    create_res = requests.post(f"{API_URL}/orders", headers=headers, json=create_payload)
+    create_res = http_session.post(
+        f"{API_URL}/orders", headers=headers, json=create_payload, timeout=15
+    )
     assert create_res.status_code == 201, f"Create failed: {create_res.text}"
     order = create_res.json()
     order_id = order["orderId"]
@@ -78,14 +98,14 @@ def test_order_lifecycle_smoke(auth_token: str):
     assert order["items"][0]["quantity"] == 2
 
     # 2. Get Single Order
-    get_res = requests.get(f"{API_URL}/orders/{order_id}", headers=headers)
+    get_res = http_session.get(f"{API_URL}/orders/{order_id}", headers=headers, timeout=15)
     assert get_res.status_code == 200
     get_data = get_res.json()
     assert get_data["orderId"] == order_id
     assert get_data["status"] == "PENDING"
 
     # 3. List Orders
-    list_res = requests.get(f"{API_URL}/orders", headers=headers)
+    list_res = http_session.get(f"{API_URL}/orders", headers=headers, timeout=15)
     assert list_res.status_code == 200
     list_data = list_res.json()
     assert list_data["count"] >= 1
@@ -93,16 +113,16 @@ def test_order_lifecycle_smoke(auth_token: str):
     assert order_id in order_ids
 
     # 4. Atomic Soft Delete Order
-    del_res = requests.delete(f"{API_URL}/orders/{order_id}", headers=headers)
+    del_res = http_session.delete(f"{API_URL}/orders/{order_id}", headers=headers, timeout=15)
     assert del_res.status_code == 204
 
     # 5. Verify Soft Delete Audit Trail (order is CANCELLED, not hard-deleted)
-    get_after_del = requests.get(f"{API_URL}/orders/{order_id}", headers=headers)
+    get_after_del = http_session.get(f"{API_URL}/orders/{order_id}", headers=headers, timeout=15)
     assert get_after_del.status_code == 200
     after_del_data = get_after_del.json()
     assert after_del_data["status"] == "CANCELLED"
     assert after_del_data.get("deletedAt") is not None
 
     # 6. Idempotent Repeat Delete
-    repeat_del = requests.delete(f"{API_URL}/orders/{order_id}", headers=headers)
+    repeat_del = http_session.delete(f"{API_URL}/orders/{order_id}", headers=headers, timeout=15)
     assert repeat_del.status_code == 204
