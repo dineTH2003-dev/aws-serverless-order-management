@@ -5,11 +5,12 @@ Custom exception types and HTTP response helpers with correlation IDs and strict
 from __future__ import annotations
 
 import json
-import logging
 import os
 from uuid import uuid4
 
-logger = logging.getLogger(__name__)
+from shared.logging import get_logger
+
+logger = get_logger(__name__)
 
 
 # ── Domain Exceptions ─────────────────────────────────────────────────────────

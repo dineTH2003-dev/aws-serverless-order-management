@@ -8,7 +8,6 @@ and soft-deletion workflows.
 
 from __future__ import annotations
 
-import logging
 import os
 from datetime import UTC, datetime
 from typing import Any
@@ -18,7 +17,9 @@ from boto3.dynamodb.conditions import Attr, Key
 from botocore.config import Config
 from botocore.exceptions import ClientError
 
-logger = logging.getLogger(__name__)
+from shared.logging import get_logger
+
+logger = get_logger(__name__)
 
 # ── Module-level resource with production connection tuning ───────────────────
 _boto_config = Config(

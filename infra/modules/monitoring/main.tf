@@ -41,6 +41,27 @@ resource "aws_cloudwatch_metric_alarm" "api_5xx" {
   }
 }
 
+# ── CloudWatch Alarm: API Gateway 4XX Errors (Auth Failures / Client Spikes) ───
+resource "aws_cloudwatch_metric_alarm" "api_4xx" {
+  alarm_name          = "${local.prefix}-apigw-4xx-errors"
+  comparison_operator = "GreaterThanThreshold"
+  evaluation_periods  = 1
+  metric_name         = "4XXError"
+  namespace           = "AWS/ApiGateway"
+  period              = 60
+  statistic           = "Sum"
+  threshold           = 50
+  alarm_description   = "API Gateway 4XX error spike detected (potential brute-force or client bug)"
+  alarm_actions       = [aws_sns_topic.alerts.arn]
+  ok_actions          = [aws_sns_topic.alerts.arn]
+  treat_missing_data  = "notBreaching"
+
+  dimensions = {
+    ApiName = var.api_gateway_name
+    Stage   = var.environment
+  }
+}
+
 # ── CloudWatch Alarm: API Gateway High Latency (P95 > 2s) ───────────────────
 resource "aws_cloudwatch_metric_alarm" "api_latency" {
   alarm_name          = "${local.prefix}-apigw-high-latency"

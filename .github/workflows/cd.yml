@@ -14,13 +14,17 @@ on:
           - dev
           - prod
 
+permissions:
+  id-token: write   # Required for AWS OIDC federated STS token exchange
+  contents: read
+
 env:
   AWS_REGION: us-east-1
   DEPLOY_ENV: ${{ inputs.environment || 'dev' }}
 
 jobs:
-  deploy:
-    name: Deploy Serverless Infrastructure
+  deploy-dev:
+    name: Deploy to Dev Environment
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Code
@@ -37,12 +41,12 @@ jobs:
         with:
           terraform_version: "1.9.5"
 
-      - name: Configure AWS Credentials
+      - name: Configure AWS Credentials (OIDC - Zero Static Keys)
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          role-to-assume: arn:aws:iam::265283365424:role/github-actions-serverless-deployer
           aws-region: ${{ env.AWS_REGION }}
+          audience: sts.amazonaws.com
 
       - name: Build Lambda Layer Dependencies
         run: |
@@ -65,7 +69,28 @@ jobs:
           cd infra
           terraform apply -auto-approve tfplan
 
-      - name: Run Post-Deployment Live Smoke Tests
+  smoke-test:
+    name: Automated Post-Deployment Smoke Tests
+    needs: deploy-dev
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+
+      - name: Configure AWS Credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::265283365424:role/github-actions-serverless-deployer
+          aws-region: ${{ env.AWS_REGION }}
+          audience: sts.amazonaws.com
+
+      - name: Run Live Smoke Tests
         env:
           AWS_REGION: ${{ env.AWS_REGION }}
           TEST_USER: "testuser@example.com"

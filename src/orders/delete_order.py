@@ -7,9 +7,6 @@ Preserves legal and financial transaction history while enforcing tenant isolati
 
 from __future__ import annotations
 
-import logging
-import os
-
 from botocore.exceptions import ClientError
 
 from shared.db import get_item, soft_delete_order
@@ -21,9 +18,9 @@ from shared.exceptions import (
     get_correlation_id,
     handle_exception,
 )
+from shared.logging import get_logger
 
-logger = logging.getLogger(__name__)
-logger.setLevel(os.environ.get("LOG_LEVEL", "INFO"))
+logger = get_logger(__name__)
 
 
 def lambda_handler(event: dict, context) -> dict:

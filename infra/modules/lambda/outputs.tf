@@ -13,9 +13,16 @@ output "function_names" {
 }
 
 output "function_invoke_arns" {
-  description = "Map of Lambda function name to invoke ARN (used by API Gateway)"
+  description = "Map of Lambda function name to live alias invoke ARN (used by API Gateway)"
   value = {
-    for k, fn in aws_lambda_function.functions : k => fn.invoke_arn
+    for k, alias in aws_lambda_alias.live : k => alias.invoke_arn
+  }
+}
+
+output "function_alias_arns" {
+  description = "Map of Lambda function name to live alias ARN"
+  value = {
+    for k, alias in aws_lambda_alias.live : k => alias.arn
   }
 }
 

@@ -170,6 +170,8 @@ resource "aws_lambda_function" "functions" {
     }
   }
 
+  publish = true
+
   layers = [aws_lambda_layer_version.dependencies.arn]
 
   tracing_config {
@@ -182,4 +184,13 @@ resource "aws_lambda_function" "functions" {
     Name     = "${local.prefix}-${each.key}"
     Function = each.key
   })
+}
+
+# ── Lambda Production Aliases (Zero-Downtime Traffic Routing) ─────────────────
+resource "aws_lambda_alias" "live" {
+  for_each         = local.functions
+  name             = "live"
+  description      = "Production traffic alias for ${each.key}"
+  function_name    = aws_lambda_function.functions[each.key].function_name
+  function_version = aws_lambda_function.functions[each.key].version
 }
