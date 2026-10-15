@@ -19,7 +19,14 @@ output "function_invoke_arns" {
   }
 }
 
+output "execution_role_arns" {
+  description = "Map of function name to dedicated IAM execution role ARN"
+  value = {
+    for k, role in aws_iam_role.function_roles : k => role.arn
+  }
+}
+
 output "execution_role_arn" {
-  description = "IAM execution role ARN shared by all Lambda functions"
-  value       = aws_iam_role.lambda_exec.arn
+  description = "Primary execution role ARN (maintained for backwards compatibility)"
+  value       = aws_iam_role.function_roles["create_order"].arn
 }

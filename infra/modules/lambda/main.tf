@@ -9,25 +9,53 @@ locals {
     create_order = {
       handler     = "orders/create_order.lambda_handler"
       description = "POST /orders — Create a new order"
+      dynamodb_actions = [
+        "dynamodb:PutItem",
+      ]
+      kms_actions = [
+        "kms:GenerateDataKey",
+        "kms:Decrypt",
+      ]
     }
     get_order = {
       handler     = "orders/get_order.lambda_handler"
       description = "GET /orders/{orderId} — Get an order"
+      dynamodb_actions = [
+        "dynamodb:GetItem",
+      ]
+      kms_actions = [
+        "kms:Decrypt",
+      ]
     }
     list_orders = {
       handler     = "orders/list_orders.lambda_handler"
       description = "GET /orders — List orders for a user"
+      dynamodb_actions = [
+        "dynamodb:Query",
+      ]
+      kms_actions = [
+        "kms:Decrypt",
+      ]
     }
     delete_order = {
       handler     = "orders/delete_order.lambda_handler"
-      description = "DELETE /orders/{orderId} — Delete an order"
+      description = "DELETE /orders/{orderId} — Soft-delete an order"
+      dynamodb_actions = [
+        "dynamodb:UpdateItem",
+        "dynamodb:GetItem",
+      ]
+      kms_actions = [
+        "kms:GenerateDataKey",
+        "kms:Decrypt",
+      ]
     }
   }
 }
 
-# ── IAM Role for Lambda ───────────────────────────────────────────────────────
-resource "aws_iam_role" "lambda_exec" {
-  name = "${local.prefix}-lambda-exec-role"
+# ── Per-Function Dedicated Least-Privilege IAM Roles ──────────────────────────
+resource "aws_iam_role" "function_roles" {
+  for_each = local.functions
+  name     = "${local.prefix}-${each.key}-exec-role"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
@@ -37,39 +65,41 @@ resource "aws_iam_role" "lambda_exec" {
       Action    = "sts:AssumeRole"
     }]
   })
+
+  tags = merge(var.tags, {
+    Name     = "${local.prefix}-${each.key}-role"
+    Function = each.key
+  })
 }
 
-# ── IAM Policy: CloudWatch Logs ───────────────────────────────────────────────
-resource "aws_iam_role_policy" "lambda_logs" {
-  name = "${local.prefix}-lambda-logs"
-  role = aws_iam_role.lambda_exec.id
+# ── CloudWatch Logs Policy (strictly scoped per function log group) ───────────
+resource "aws_iam_role_policy" "function_logs" {
+  for_each = local.functions
+  name     = "${local.prefix}-${each.key}-logs"
+  role     = aws_iam_role.function_roles[each.key].id
 
   policy = jsonencode({
     Version = "2012-10-17"
     Statement = [{
       Effect   = "Allow"
       Action   = ["logs:CreateLogGroup", "logs:CreateLogStream", "logs:PutLogEvents"]
-      Resource = "arn:aws:logs:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:log-group:/aws/lambda/${local.prefix}-*"
+      Resource = "arn:aws:logs:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:log-group:/aws/lambda/${local.prefix}-${each.key}*"
     }]
   })
 }
 
-# ── IAM Policy: DynamoDB (least privilege — exact operations only) ─────────────
-resource "aws_iam_role_policy" "lambda_dynamodb" {
-  name = "${local.prefix}-lambda-dynamodb"
-  role = aws_iam_role.lambda_exec.id
+# ── DynamoDB & KMS Least-Privilege Policy ─────────────────────────────────────
+resource "aws_iam_role_policy" "function_dynamodb" {
+  for_each = local.functions
+  name     = "${local.prefix}-${each.key}-dynamodb"
+  role     = aws_iam_role.function_roles[each.key].id
 
   policy = jsonencode({
     Version = "2012-10-17"
     Statement = [
       {
         Effect = "Allow"
-        Action = [
-          "dynamodb:PutItem",
-          "dynamodb:GetItem",
-          "dynamodb:DeleteItem",
-          "dynamodb:Query",
-        ]
+        Action = each.value.dynamodb_actions
         Resource = [
           var.dynamodb_table_arn,
           "${var.dynamodb_table_arn}/index/*",
@@ -77,16 +107,17 @@ resource "aws_iam_role_policy" "lambda_dynamodb" {
       },
       {
         Effect   = "Allow"
-        Action   = ["kms:Decrypt", "kms:GenerateDataKey"]
+        Action   = each.value.kms_actions
         Resource = var.dynamodb_kms_key_arn
       }
     ]
   })
 }
 
-# ── IAM Policy: X-Ray tracing ────────────────────────────────────────────────
-resource "aws_iam_role_policy_attachment" "lambda_xray" {
-  role       = aws_iam_role.lambda_exec.name
+# ── X-Ray Distributed Tracing Policy ──────────────────────────────────────────
+resource "aws_iam_role_policy_attachment" "function_xray" {
+  for_each   = local.functions
+  role       = aws_iam_role.function_roles[each.key].name
   policy_arn = "arn:aws:iam::aws:policy/AWSXRayDaemonWriteAccess"
 }
 
@@ -122,7 +153,7 @@ resource "aws_lambda_function" "functions" {
 
   function_name = "${local.prefix}-${each.key}"
   description   = each.value.description
-  role          = aws_iam_role.lambda_exec.arn
+  role          = aws_iam_role.function_roles[each.key].arn
 
   filename         = data.archive_file.lambda_zips[each.key].output_path
   source_code_hash = data.archive_file.lambda_zips[each.key].output_base64sha256

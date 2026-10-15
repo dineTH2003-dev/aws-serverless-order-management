@@ -1,24 +1,38 @@
 """
 DynamoDB client abstraction layer.
 
-Provides a clean interface for all DynamoDB operations used by
-the order management Lambda functions. Centralises retry logic,
-error mapping, and connection management (reuse across warm starts).
+Provides a clean, enterprise-grade interface for all DynamoDB operations.
+Configures resilient Boto3 retries, socket timeouts, atomic conditional mutations,
+and soft-deletion workflows.
 """
+
 from __future__ import annotations
 
 import logging
 import os
+from datetime import UTC, datetime
 from typing import Any
 
 import boto3
 from boto3.dynamodb.conditions import Attr, Key
+from botocore.config import Config
 from botocore.exceptions import ClientError
 
 logger = logging.getLogger(__name__)
 
-# ── Module-level resource (reused across Lambda warm starts) ──────────────────
-_dynamodb = boto3.resource("dynamodb", region_name=os.environ.get("AWS_REGION", "us-east-1"))
+# ── Module-level resource with production connection tuning ───────────────────
+_boto_config = Config(
+    retries={"max_attempts": 3, "mode": "standard"},
+    connect_timeout=2,
+    read_timeout=3,
+    tcp_keepalive=True,
+)
+
+_dynamodb = boto3.resource(
+    "dynamodb",
+    region_name=os.environ.get("AWS_REGION", "us-east-1"),
+    config=_boto_config,
+)
 _table: Any = None
 
 
@@ -34,13 +48,18 @@ def get_table() -> Any:
 
 # ── CRUD helpers ──────────────────────────────────────────────────────────────
 
-def put_item(item: dict) -> None:
-    """Insert or fully replace an item. Raises on DynamoDB errors."""
+
+def put_item(item: dict, condition_expression: Any = None) -> None:
+    """Insert or conditionally put an item into DynamoDB."""
+    kwargs: dict[str, Any] = {"Item": item}
+    if condition_expression is not None:
+        kwargs["ConditionExpression"] = condition_expression
+
     try:
-        get_table().put_item(Item=item)
+        get_table().put_item(**kwargs)
         logger.info("put_item success", extra={"pk": item.get("PK")})
     except ClientError as exc:
-        logger.error("put_item failed", extra={"error": str(exc)})
+        logger.error("put_item failed", extra={"error": str(exc), "pk": item.get("PK")})
         raise
 
 
@@ -57,17 +76,24 @@ def get_item(pk: str, sk: str = "METADATA") -> dict | None:
         raise
 
 
-def query_by_user(user_id: str, limit: int = 20, last_key: dict | None = None) -> dict:
+def query_by_user(
+    user_id: str,
+    status: str | None = None,
+    limit: int = 20,
+    last_key: dict | None = None,
+) -> dict:
     """
-    Query all orders for a given userId using GSI-1 (userId-createdAt-index).
-    Supports cursor-based pagination via last_key.
+    Query orders for a given userId using GSI-1 (userId-createdAt-index).
+    Supports database-level status filtering and cursor-based pagination.
     """
-    kwargs: dict = {
+    kwargs: dict[str, Any] = {
         "IndexName": "userId-createdAt-index",
         "KeyConditionExpression": Key("userId").eq(user_id),
         "Limit": limit,
         "ScanIndexForward": False,  # newest first
     }
+    if status:
+        kwargs["FilterExpression"] = Attr("status").eq(status)
     if last_key:
         kwargs["ExclusiveStartKey"] = last_key
 
@@ -87,7 +113,7 @@ def query_by_status(status: str, limit: int = 20, last_key: dict | None = None) 
     """
     Query orders by status using GSI-2 (status-createdAt-index).
     """
-    kwargs: dict = {
+    kwargs: dict[str, Any] = {
         "IndexName": "status-createdAt-index",
         "KeyConditionExpression": Key("status").eq(status),
         "Limit": limit,
@@ -108,21 +134,45 @@ def query_by_status(status: str, limit: int = 20, last_key: dict | None = None) 
         raise
 
 
+def soft_delete_order(order_id: str, user_id: str) -> dict:
+    """
+    Atomically soft-delete an order in a single DynamoDB round trip.
+    Sets status = CANCELLED and records deletedAt timestamp.
+    Raises ConditionalCheckFailedException if the order doesn't exist,
+    belongs to another user, or is already cancelled.
+    """
+    now = datetime.now(UTC).isoformat()
+    try:
+        response = get_table().update_item(
+            Key={"PK": f"ORDER#{order_id}", "SK": "METADATA"},
+            UpdateExpression="SET #status = :cancelled, deletedAt = :now, updatedAt = :now",
+            ConditionExpression="attribute_exists(PK) AND userId = :user_id AND #status <> :cancelled",
+            ExpressionAttributeNames={"#status": "status"},
+            ExpressionAttributeValues={
+                ":cancelled": "CANCELLED",
+                ":user_id": user_id,
+                ":now": now,
+            },
+            ReturnValues="ALL_NEW",
+        )
+        logger.info("soft_delete_order success", extra={"order_id": order_id, "user_id": user_id})
+        return response.get("Attributes", {})
+    except ClientError as exc:
+        logger.warning(
+            "soft_delete_order condition failed or error",
+            extra={"order_id": order_id, "error": str(exc)},
+        )
+        raise
+
+
 def delete_item(pk: str, sk: str = "METADATA") -> None:
-    """
-    Delete a single item by primary key.
-    Uses a condition expression to ensure the item exists before deletion.
-    Raises ClientError with ConditionalCheckFailedException if not found.
-    """
+    """Hard-delete item (maintained for test fixture cleanup)."""
     try:
         get_table().delete_item(
             Key={"PK": pk, "SK": sk},
             ConditionExpression=Attr("PK").exists(),
         )
-        logger.info("delete_item success", extra={"pk": pk})
     except ClientError as exc:
         if exc.response["Error"]["Code"] == "ConditionalCheckFailedException":
-            logger.warning("delete_item: item not found", extra={"pk": pk})
-            return  # Treat as idempotent — already gone
-        logger.error("delete_item failed", extra={"pk": pk, "error": str(exc)})
+            return
         raise

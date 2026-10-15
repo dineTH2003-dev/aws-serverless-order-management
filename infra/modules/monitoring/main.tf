@@ -103,6 +103,26 @@ resource "aws_cloudwatch_metric_alarm" "lambda_duration" {
   }
 }
 
+# ── CloudWatch Alarm: DynamoDB Throttled Requests ─────────────────────────────
+resource "aws_cloudwatch_metric_alarm" "dynamodb_throttles" {
+  alarm_name          = "${local.prefix}-dynamodb-throttled-requests"
+  comparison_operator = "GreaterThanThreshold"
+  evaluation_periods  = 1
+  metric_name         = "ThrottledRequests"
+  namespace           = "AWS/DynamoDB"
+  period              = 60
+  statistic           = "Sum"
+  threshold           = 0
+  alarm_description   = "DynamoDB throttled requests detected on ${var.dynamodb_table_name}"
+  alarm_actions       = [aws_sns_topic.alerts.arn]
+  ok_actions          = [aws_sns_topic.alerts.arn]
+  treat_missing_data  = "notBreaching"
+
+  dimensions = {
+    TableName = var.dynamodb_table_name
+  }
+}
+
 # ── CloudWatch Unified Observability Dashboard ───────────────────────────────
 resource "aws_cloudwatch_dashboard" "main" {
   dashboard_name = "${local.prefix}-dashboard"

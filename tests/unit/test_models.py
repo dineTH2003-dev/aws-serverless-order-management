@@ -1,5 +1,6 @@
 import pytest
 from pydantic import ValidationError
+
 from shared.models import CreateOrderRequest, Order, OrderItem, OrderStatus
 
 
@@ -45,6 +46,7 @@ def test_order_dynamodb_roundtrip():
     assert item["SK"] == "METADATA"
     assert item["status"] == "PENDING"
     from decimal import Decimal
+
     assert item["totalAmount"] == Decimal("30.0")
 
     reconstructed = Order.from_dynamodb_item(item)

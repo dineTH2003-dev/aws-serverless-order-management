@@ -1,10 +1,11 @@
 """
 GET /orders — List all orders for the authenticated user.
 
-Queries DynamoDB GSI-1 (userId-createdAt-index) to return the user's
-orders, newest first. Supports optional status filtering and cursor
-pagination via the lastKey query parameter.
+Queries DynamoDB GSI-1 (userId-createdAt-index) to return user orders, newest first.
+Pushes status filtering down to DynamoDB (FilterExpression) to maintain pagination integrity.
+Supports cursor-based pagination via lastKey query parameter.
 """
+
 from __future__ import annotations
 
 import json
@@ -12,7 +13,12 @@ import logging
 import os
 
 from shared.db import query_by_user
-from shared.exceptions import ValidationError, handle_exception, success_response
+from shared.exceptions import (
+    ValidationError,
+    get_correlation_id,
+    handle_exception,
+    success_response,
+)
 from shared.models import Order, OrderStatus
 
 logger = logging.getLogger(__name__)
@@ -23,6 +29,7 @@ _DEFAULT_LIMIT = 20
 
 
 def lambda_handler(event: dict, context) -> dict:
+    correlation_id = get_correlation_id(event)
     try:
         # ── Extract authenticated user ─────────────────────────────────────────
         claims = event.get("requestContext", {}).get("authorizer", {}).get("claims", {})
@@ -33,12 +40,12 @@ def lambda_handler(event: dict, context) -> dict:
         # ── Extract query parameters ───────────────────────────────────────────
         params = event.get("queryStringParameters") or {}
         status_filter = params.get("status")
-        last_key_raw  = params.get("lastKey")
+        last_key_raw = params.get("lastKey")
 
         try:
             limit = min(int(params.get("limit", _DEFAULT_LIMIT)), _MAX_LIMIT)
-        except (ValueError, TypeError):
-            raise ValidationError("Query parameter 'limit' must be an integer")
+        except (ValueError, TypeError) as exc:
+            raise ValidationError("Query parameter 'limit' must be an integer") from exc
 
         # Validate status filter if provided
         if status_filter and status_filter not in OrderStatus._value2member_map_:
@@ -48,15 +55,16 @@ def lambda_handler(event: dict, context) -> dict:
         # Decode pagination cursor
         last_key = json.loads(last_key_raw) if last_key_raw else None
 
-        # ── Query DynamoDB ─────────────────────────────────────────────────────
-        result = query_by_user(user_id=user_id, limit=limit, last_key=last_key)
+        # ── Query DynamoDB with database-level status filtering ────────────────
+        result = query_by_user(
+            user_id=user_id,
+            status=status_filter,
+            limit=limit,
+            last_key=last_key,
+        )
         items = result["items"]
 
-        # Client-side status filter (no additional GSI query needed for now)
-        if status_filter:
-            items = [i for i in items if i.get("status") == status_filter]
-
-        orders = [Order.from_dynamodb_item(i).model_dump() for i in items]
+        orders = [Order.from_dynamodb_item(i).model_dump(mode="json") for i in items]
 
         response_body: dict = {"orders": orders, "count": len(orders)}
         if result.get("last_evaluated_key"):
@@ -64,9 +72,14 @@ def lambda_handler(event: dict, context) -> dict:
 
         logger.info(
             "Orders listed",
-            extra={"user_id": user_id, "count": len(orders), "limit": limit},
+            extra={
+                "user_id": user_id,
+                "count": len(orders),
+                "limit": limit,
+                "correlation_id": correlation_id,
+            },
         )
-        return success_response(response_body)
+        return success_response(response_body, correlation_id=correlation_id)
 
     except Exception as exc:  # noqa: BLE001
-        return handle_exception(exc)
+        return handle_exception(exc, correlation_id)

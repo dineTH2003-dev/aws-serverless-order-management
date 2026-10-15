@@ -67,6 +67,10 @@ resource "aws_dynamodb_table" "orders" {
     projection_type = "ALL"
   }
 
+  # ── Change Data Capture (DynamoDB Streams for Event-Driven Microservices) ───
+  stream_enabled   = true
+  stream_view_type = "NEW_AND_OLD_IMAGES"
+
   # ── TTL for automatic item expiry ───────────────────────────────────────────
   ttl {
     attribute_name = var.ttl_attribute
@@ -87,22 +91,4 @@ resource "aws_dynamodb_table" "orders" {
   tags = merge(var.tags, {
     Name = local.table_name
   })
-}
-
-# ── CloudWatch Alarm: Throttled requests ─────────────────────────────────────
-resource "aws_cloudwatch_metric_alarm" "dynamodb_throttles" {
-  alarm_name          = "${local.table_name}-throttled-requests"
-  comparison_operator = "GreaterThanThreshold"
-  evaluation_periods  = 1
-  metric_name         = "ThrottledRequests"
-  namespace           = "AWS/DynamoDB"
-  period              = 60
-  statistic           = "Sum"
-  threshold           = 0
-  alarm_description   = "DynamoDB throttled requests detected on ${local.table_name}"
-  treat_missing_data  = "notBreaching"
-
-  dimensions = {
-    TableName = aws_dynamodb_table.orders.name
-  }
 }

@@ -1,4 +1,6 @@
-import sys, os
+import os
+import sys
+
 sys.path.insert(0, os.path.dirname(__file__))
 import os
 import sys
@@ -73,6 +75,7 @@ def dynamodb_table(aws_credentials):
 
         # Reset module-level table cache in db.py
         import shared.db as db_mod
+
         db_mod._table = table
         db_mod._dynamodb = dynamodb
 
@@ -87,20 +90,35 @@ def auth_headers():
     }
 
 
-def make_apigw_event(method="GET", path="/orders", body=None, path_params=None, query_params=None, user_id="user-test-123"):
+def make_apigw_event(
+    method="GET",
+    path="/orders",
+    body=None,
+    path_params=None,
+    query_params=None,
+    user_id="user-test-123",
+):
     return {
         "httpMethod": method,
         "path": path,
-        "body": body if isinstance(body, str) else (None if body is None else __import__("json").dumps(body)),
+        "body": (
+            body
+            if isinstance(body, str)
+            else (None if body is None else __import__("json").dumps(body))
+        ),
         "pathParameters": path_params,
         "queryStringParameters": query_params,
         "headers": {"Content-Type": "application/json"},
         "requestContext": {
             "authorizer": {
-                "claims": {
-                    "sub": user_id,
-                    "email": f"{user_id}@example.com",
-                } if user_id else {}
+                "claims": (
+                    {
+                        "sub": user_id,
+                        "email": f"{user_id}@example.com",
+                    }
+                    if user_id
+                    else {}
+                )
             }
         },
     }

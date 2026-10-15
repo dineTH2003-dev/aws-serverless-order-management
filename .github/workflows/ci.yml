@@ -9,8 +9,38 @@ permissions:
   contents: read
 
 jobs:
-  test:
-    name: Unit Tests & Code Quality
+  code-quality:
+    name: Code Quality & Security Scan
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+
+      - name: Install Quality & Security Tools
+        run: |
+          python -m pip install --upgrade pip
+          pip install ruff black bandit pip-audit
+
+      - name: Code Formatting Check (Black)
+        run: black --check src/ tests/
+
+      - name: Linter Check (Ruff)
+        run: ruff check src/ tests/
+
+      - name: SAST Security Scan (Bandit)
+        run: bandit -r src/ -ll
+
+      - name: SCA Dependency Audit (pip-audit)
+        run: pip-audit -r requirements.txt
+
+  unit-tests:
+    name: Unit Tests & Coverage Gate
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Code
@@ -25,11 +55,11 @@ jobs:
       - name: Install Dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install boto3 pydantic pytest moto[dynamodb]
+          pip install -r requirements.txt pytest pytest-cov moto[dynamodb]
 
-      - name: Run Unit Tests
+      - name: Run Unit Tests with Coverage
         run: |
-          pytest tests/unit/ -v
+          pytest tests/unit/ -v --cov=src --cov-report=term-missing --cov-fail-under=80
 
   terraform-lint:
     name: Terraform Format & Validate
@@ -44,8 +74,7 @@ jobs:
           terraform_version: "1.9.5"
 
       - name: Check Formatting
-        run: |
-          terraform fmt -check -recursive infra
+        run: terraform fmt -check -recursive infra
 
       - name: Initialize & Validate
         run: |

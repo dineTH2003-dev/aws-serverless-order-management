@@ -1,22 +1,33 @@
 """
-DELETE /orders/{orderId} — Delete an order.
+DELETE /orders/{orderId} — Soft-delete an order.
 
-Fetches the order first to verify it exists and that the requesting
-user is the owner. Then hard-deletes the item from DynamoDB.
+Performs an atomic single-round-trip soft-deletion (status = CANCELLED, deletedAt = now).
+Preserves legal and financial transaction history while enforcing tenant isolation.
 """
+
 from __future__ import annotations
 
 import logging
 import os
 
-from shared.db import delete_item, get_item
-from shared.exceptions import ForbiddenError, NotFoundError, ValidationError, handle_exception, success_response
+from botocore.exceptions import ClientError
+
+from shared.db import get_item, soft_delete_order
+from shared.exceptions import (
+    ForbiddenError,
+    NotFoundError,
+    ValidationError,
+    _cors_headers,
+    get_correlation_id,
+    handle_exception,
+)
 
 logger = logging.getLogger(__name__)
 logger.setLevel(os.environ.get("LOG_LEVEL", "INFO"))
 
 
 def lambda_handler(event: dict, context) -> dict:
+    correlation_id = get_correlation_id(event)
     try:
         # ── Extract authenticated user ─────────────────────────────────────────
         claims = event.get("requestContext", {}).get("authorizer", {}).get("claims", {})
@@ -29,28 +40,36 @@ def lambda_handler(event: dict, context) -> dict:
         if not order_id:
             raise ValidationError("Missing required path parameter: orderId")
 
-        # ── Fetch order to verify ownership before deletion ────────────────────
-        item = get_item(pk=f"ORDER#{order_id}")
-        if item is None:
-            raise NotFoundError(f"Order {order_id} not found")
+        # ── Atomic soft-deletion in a single round trip ────────────────────────
+        try:
+            soft_delete_order(order_id=order_id, user_id=user_id)
+        except ClientError as exc:
+            if exc.response["Error"]["Code"] == "ConditionalCheckFailedException":
+                # Diagnose reason for condition failure
+                item = get_item(pk=f"ORDER#{order_id}")
+                if item is None:
+                    raise NotFoundError(f"Order {order_id} not found") from exc
+                if item.get("userId") != user_id:
+                    raise ForbiddenError("You do not have permission to delete this order") from exc
+                if item.get("status") == "CANCELLED":
+                    # Idempotent repeat delete of already cancelled order
+                    return {
+                        "statusCode": 204,
+                        "headers": _cors_headers(correlation_id),
+                        "body": "",
+                    }
+            raise
 
-        if item.get("userId") != user_id:
-            raise ForbiddenError("You do not have permission to delete this order")
+        logger.info(
+            "Order soft-deleted",
+            extra={"order_id": order_id, "user_id": user_id, "correlation_id": correlation_id},
+        )
 
-        # ── Delete from DynamoDB ───────────────────────────────────────────────
-        delete_item(pk=f"ORDER#{order_id}")
-
-        logger.info("Order deleted", extra={"order_id": order_id, "user_id": user_id})
-
-        # HTTP 204 No Content — no body
         return {
             "statusCode": 204,
-            "headers": {
-                "Access-Control-Allow-Origin": "*",
-                "Access-Control-Allow-Methods": "DELETE,OPTIONS",
-            },
+            "headers": _cors_headers(correlation_id),
             "body": "",
         }
 
     except Exception as exc:  # noqa: BLE001
-        return handle_exception(exc)
+        return handle_exception(exc, correlation_id)

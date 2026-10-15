@@ -64,3 +64,12 @@ jobs:
         run: |
           cd infra
           terraform apply -auto-approve tfplan
+
+      - name: Run Post-Deployment Live Smoke Tests
+        env:
+          AWS_REGION: ${{ env.AWS_REGION }}
+          TEST_USER: "testuser@example.com"
+          TEST_PASSWORD: "Password123!"
+        run: |
+          pip install requests pytest boto3
+          pytest tests/integration/test_integration_smoke.py -v

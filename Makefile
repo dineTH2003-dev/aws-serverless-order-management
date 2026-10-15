@@ -39,7 +39,8 @@ build: ## Package Lambda functions as zip files
 	@for func in create_order get_order list_orders delete_order; do \
 		zip -j dist/$${func}.zip src/orders/$${func}.py src/shared/models.py src/shared/db.py src/shared/exceptions.py; \
 	done
-	tf-init: ## Terraform init for ENV (default: dev)
+
+tf-init: ## Terraform init for ENV (default: dev)
 	cd infra && $(TF) init -backend-config=environments/$(ENV)/backend.tfvars
 
 tf-plan: ## Terraform plan for ENV
