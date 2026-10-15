@@ -9,8 +9,6 @@ Supports cursor-based pagination via lastKey query parameter.
 from __future__ import annotations
 
 import json
-import logging
-import os
 
 from shared.db import query_by_user
 from shared.exceptions import (
@@ -19,10 +17,10 @@ from shared.exceptions import (
     handle_exception,
     success_response,
 )
+from shared.logging import get_logger
 from shared.models import Order, OrderStatus
 
-logger = logging.getLogger(__name__)
-logger.setLevel(os.environ.get("LOG_LEVEL", "INFO"))
+logger = get_logger(__name__)
 
 _MAX_LIMIT = 100
 _DEFAULT_LIMIT = 20

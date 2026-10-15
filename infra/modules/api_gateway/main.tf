@@ -233,13 +233,24 @@ resource "aws_api_gateway_integration_response" "options_order_id_200" {
   depends_on = [aws_api_gateway_integration.options_order_id]
 }
 
-# ── Lambda Permissions for API Gateway ────────────────────────────────────────
+# ── Lambda Permissions for API Gateway (Base & Live Alias) ────────────────────
 resource "aws_lambda_permission" "apigw_lambda" {
   for_each = var.lambda_function_names
 
   statement_id  = "AllowAPIGatewayInvoke-${each.key}"
   action        = "lambda:InvokeFunction"
   function_name = each.value
+  principal     = "apigateway.amazonaws.com"
+  source_arn    = "${aws_api_gateway_rest_api.main.execution_arn}/*/*"
+}
+
+resource "aws_lambda_permission" "apigw_lambda_alias" {
+  for_each = var.lambda_function_names
+
+  statement_id  = "AllowAPIGatewayInvokeAlias-${each.key}"
+  action        = "lambda:InvokeFunction"
+  function_name = each.value
+  qualifier     = "live"
   principal     = "apigateway.amazonaws.com"
   source_arn    = "${aws_api_gateway_rest_api.main.execution_arn}/*/*"
 }

@@ -7,9 +7,6 @@ only the user who created the order can retrieve it.
 
 from __future__ import annotations
 
-import logging
-import os
-
 from shared.db import get_item
 from shared.exceptions import (
     ForbiddenError,
@@ -19,10 +16,10 @@ from shared.exceptions import (
     handle_exception,
     success_response,
 )
+from shared.logging import get_logger
 from shared.models import Order
 
-logger = logging.getLogger(__name__)
-logger.setLevel(os.environ.get("LOG_LEVEL", "INFO"))
+logger = get_logger(__name__)
 
 
 def lambda_handler(event: dict, context) -> dict:

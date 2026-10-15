@@ -120,3 +120,18 @@ resource "aws_wafv2_web_acl_association" "api_gateway" {
   resource_arn = var.api_gateway_stage_arn
   web_acl_arn  = aws_wafv2_web_acl.main.arn
 }
+
+# ── CloudWatch Log Group & Logging Configuration for WAF ─────────────────────
+resource "aws_cloudwatch_log_group" "waf_logs" {
+  name              = "aws-waf-logs-${var.project_name}-${var.environment}"
+  retention_in_days = 14
+
+  tags = merge(var.tags, {
+    Name = "aws-waf-logs-${var.project_name}-${var.environment}"
+  })
+}
+
+resource "aws_wafv2_web_acl_logging_configuration" "main" {
+  log_destination_configs = [aws_cloudwatch_log_group.waf_logs.arn]
+  resource_arn            = aws_wafv2_web_acl.main.arn
+}
